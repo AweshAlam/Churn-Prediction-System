@@ -8,6 +8,8 @@ from flask import Flask, request, render_template
 import pickle
 
 app = Flask("__name__")
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port)
 
 df_1=pd.read_csv("first_telc.csv")
 
@@ -128,4 +130,3 @@ def predict():
                            query18 = request.form['query18'], 
                            query19 = request.form['query19'])
     
-app.run(debug=True, port=8000)
