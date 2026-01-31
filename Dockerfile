@@ -1,32 +1,29 @@
-# Use Python 3.9 (fixed, legacy-safe)
+# ✅ Stable & compatible with sklearn + xgboost
 FROM python:3.9-slim
 
-# Prevent Python from writing .pyc files
+# Prevent .pyc files & enable real-time logs
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies (needed for scipy & xgboost)
+# ✅ System dependencies for numpy / scipy / xgboost
 RUN apt-get update && apt-get install -y \
     build-essential \
     gcc \
     g++ \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first (better caching)
+# Copy requirements first (better Docker caching)
 COPY requirements.txt .
 
-# Upgrade pip & install dependencies
-RUN pip install --upgrade pip setuptools \
-    && pip install -r requirements.txt
+# Upgrade pip & install Python dependencies
+RUN pip install --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Copy project files
+# Copy application files
 COPY . .
 
-# Expose port (Render uses $PORT)
-EXPOSE 8000
-
-# Start the Flask app
+# Render provides PORT automatically
 CMD ["python", "app.py"]
