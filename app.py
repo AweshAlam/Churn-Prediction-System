@@ -1,136 +1,98 @@
 # coding: utf-8
-
+import os
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier 
-from sklearn import metrics
 from flask import Flask, request, render_template
 import pickle
-import os
+
+# ✅ Correct Flask app initialization
+app = Flask(__name__)
+
+# ✅ Load model ONCE (important for Render)
+MODEL_PATH = "model.sav"
+model = pickle.load(open(MODEL_PATH, "rb"))
+
+# ✅ Load dataset safely
+DATA_PATH = "first_telc.csv"
+df_1 = pd.read_csv(DATA_PATH)
+
+@app.route("/", methods=["GET", "POST"])
+def home():
+    if request.method == "POST":
+
+        input_data = [
+            request.form['query1'],
+            request.form['query2'],
+            request.form['query3'],
+            request.form['query4'],
+            request.form['query5'],
+            request.form['query6'],
+            request.form['query7'],
+            request.form['query8'],
+            request.form['query9'],
+            request.form['query10'],
+            request.form['query11'],
+            request.form['query12'],
+            request.form['query13'],
+            request.form['query14'],
+            request.form['query15'],
+            request.form['query16'],
+            request.form['query17'],
+            request.form['query18'],
+            request.form['query19'],
+        ]
+
+        columns = [
+            'SeniorCitizen', 'MonthlyCharges', 'TotalCharges', 'gender',
+            'Partner', 'Dependents', 'PhoneService', 'MultipleLines',
+            'InternetService', 'OnlineSecurity', 'OnlineBackup',
+            'DeviceProtection', 'TechSupport', 'StreamingTV',
+            'StreamingMovies', 'Contract', 'PaperlessBilling',
+            'PaymentMethod', 'tenure'
+        ]
+
+        new_df = pd.DataFrame([input_data], columns=columns)
+
+        df_2 = pd.concat([df_1, new_df], ignore_index=True)
+
+        labels = [f"{i} - {i+11}" for i in range(1, 72, 12)]
+        df_2['tenure_group'] = pd.cut(
+            df_2.tenure.astype(int),
+            range(1, 80, 12),
+            right=False,
+            labels=labels
+        )
+
+        df_2.drop(columns=['tenure'], inplace=True)
+
+        final_df = pd.get_dummies(df_2[
+            ['gender', 'SeniorCitizen', 'Partner', 'Dependents', 'PhoneService',
+             'MultipleLines', 'InternetService', 'OnlineSecurity',
+             'OnlineBackup', 'DeviceProtection', 'TechSupport',
+             'StreamingTV', 'StreamingMovies', 'Contract',
+             'PaperlessBilling', 'PaymentMethod', 'tenure_group']
+        ])
+
+        prediction = model.predict(final_df.tail(1))[0]
+        probability = model.predict_proba(final_df.tail(1))[0][1] * 100
+
+        if prediction == 1:
+            o1 = "This customer is likely to churn ❌"
+        else:
+            o1 = "This customer is likely to continue ✅"
+
+        o2 = f"Confidence: {probability:.2f}%"
+
+        return render_template(
+            "index.html",
+            output1=o1,
+            output2=o2,
+            **{f"query{i+1}": input_data[i] for i in range(19)}
+        )
+
+    return render_template("index.html")
 
 
-app = Flask("__name__")
+# ✅ Render / Docker entrypoint
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port)
-
-df_1=pd.read_csv("first_telc.csv")
-
-q = ""
-
-@app.route("/")
-def loadPage():
-	return render_template('index.html', query="")
-
-
-@app.route("/", methods=['POST'])
-def predict():
-    
-    '''
-    SeniorCitizen
-    MonthlyCharges
-    TotalCharges
-    gender
-    Partner
-    Dependents
-    PhoneService
-    MultipleLines
-    InternetService
-    OnlineSecurity
-    OnlineBackup
-    DeviceProtection
-    TechSupport
-    StreamingTV
-    StreamingMovies
-    Contract
-    PaperlessBilling
-    PaymentMethod
-    tenure
-    '''
-    
-
-    
-    inputQuery1 = request.form['query1']
-    inputQuery2 = request.form['query2']
-    inputQuery3 = request.form['query3']
-    inputQuery4 = request.form['query4']
-    inputQuery5 = request.form['query5']
-    inputQuery6 = request.form['query6']
-    inputQuery7 = request.form['query7']
-    inputQuery8 = request.form['query8']
-    inputQuery9 = request.form['query9']
-    inputQuery10 = request.form['query10']
-    inputQuery11 = request.form['query11']
-    inputQuery12 = request.form['query12']
-    inputQuery13 = request.form['query13']
-    inputQuery14 = request.form['query14']
-    inputQuery15 = request.form['query15']
-    inputQuery16 = request.form['query16']
-    inputQuery17 = request.form['query17']
-    inputQuery18 = request.form['query18']
-    inputQuery19 = request.form['query19']
-
-    model = pickle.load(open("model.sav", "rb"))
-    
-    data = [[inputQuery1, inputQuery2, inputQuery3, inputQuery4, inputQuery5, inputQuery6, inputQuery7, 
-             inputQuery8, inputQuery9, inputQuery10, inputQuery11, inputQuery12, inputQuery13, inputQuery14,
-             inputQuery15, inputQuery16, inputQuery17, inputQuery18, inputQuery19]]
-    
-    new_df = pd.DataFrame(data, columns = ['SeniorCitizen', 'MonthlyCharges', 'TotalCharges', 'gender', 
-                                           'Partner', 'Dependents', 'PhoneService', 'MultipleLines', 'InternetService',
-                                           'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport',
-                                           'StreamingTV', 'StreamingMovies', 'Contract', 'PaperlessBilling',
-                                           'PaymentMethod', 'tenure'])
-    
-    df_2 = pd.concat([df_1, new_df], ignore_index = True) 
-    # Group the tenure in bins of 12 months
-    labels = ["{0} - {1}".format(i, i + 11) for i in range(1, 72, 12)]
-    
-    df_2['tenure_group'] = pd.cut(df_2.tenure.astype(int), range(1, 80, 12), right=False, labels=labels)
-    #drop column customerID and tenure
-    df_2.drop(columns= ['tenure'], axis=1, inplace=True)   
-    
-    
-    
-    
-    new_df__dummies = pd.get_dummies(df_2[['gender', 'SeniorCitizen', 'Partner', 'Dependents', 'PhoneService',
-           'MultipleLines', 'InternetService', 'OnlineSecurity', 'OnlineBackup',
-           'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies',
-           'Contract', 'PaperlessBilling', 'PaymentMethod','tenure_group']])
-    
-    
-    #final_df=pd.concat([new_df__dummies, new_dummy], axis=1)
-        
-    
-    single = model.predict(new_df__dummies.tail(1))
-    probablity = model.predict_proba(new_df__dummies.tail(1))[:,1]
-    
-    if single==1:
-        o1 = "This customer is likely to be churned!!"
-        o2 = "Confidence: {}".format(probablity*100)
-    else:
-        o1 = "This customer is likely to continue!!"
-        o2 = "Confidence: {}".format(probablity*100)
-        
-    return render_template('index.html', output1=o1, output2=o2, 
-                           query1 = request.form['query1'], 
-                           query2 = request.form['query2'],
-                           query3 = request.form['query3'],
-                           query4 = request.form['query4'],
-                           query5 = request.form['query5'], 
-                           query6 = request.form['query6'], 
-                           query7 = request.form['query7'], 
-                           query8 = request.form['query8'], 
-                           query9 = request.form['query9'], 
-                           query10 = request.form['query10'], 
-                           query11 = request.form['query11'], 
-                           query12 = request.form['query12'], 
-                           query13 = request.form['query13'], 
-                           query14 = request.form['query14'], 
-                           query15 = request.form['query15'], 
-                           query16 = request.form['query16'], 
-                           query17 = request.form['query17'],
-                           query18 = request.form['query18'], 
-                           query19 = request.form['query19'])
-    
-app.run(debug=True, port=8000)
